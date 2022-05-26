@@ -1,4 +1,4 @@
-function [vidOnlyTable, tempOnlyTable] = garrityVidTempSynch(vidDataFname,tempDataFname,varargin)
+function [synchedData] = garrityVidTempSynch(vidDataFname,tempDataFname,varargin)
 % Written by Ben Ballintyn (bbal@brandeis.edu) 05/22
 
 % Disable warnings until end of table creation
@@ -101,12 +101,12 @@ else
 end
 
 % Synch data using desired method
-synchedData = cell2table(cell(0,3),'VariableNames',{'Frame','TimeElapsed','Celcius','SynchError','VideoTime','TempTime','isInterped'});
+synchedData = cell2table(cell(0,7),'VariableNames',{'Frame','TimeElapsed','Celcius','SynchError','VideoTime','TempTime','isInterpolated'});
 for i=1:frameCount
     synchedData.Frame(i) = vidOnlyTable.frame(i);
     synchedData.TimeElapsed(i) = vidOnlyTable.elapsed_time(i);
     if (strcmp(p.Results.synchMethod,'exactInterp'))
-        tdiffs = vidOnlyTable.Timestamp(i) - tempOnlyTable.Timestamp(i);
+        tdiffs = vidOnlyTable.Timestamp(i) - tempOnlyTable.Timestamp;
         [~,bestInd] = min(abs(tdiffs));
         if (tdiffs(bestInd) > 0)
             if (bestInd ~= height(tempOnlyTable))
@@ -117,16 +117,37 @@ for i=1:frameCount
                 synchedData.SynchError(i) = abs(tdiffs(bestInd));
                 synchedData.VideoTime(i) = vidOnlyTable.Timestamp(i);
                 synchedData.TempTime(i) = tempOnlyTable.Timestamp(i);
-                synchedData.isInterped(i) = true;
+                synchedData.isInterpolated(i) = true;
             else
                 synchedData.Celcius(i) = tempOnlyTable.Celcius(bestInd);
                 synchedData.SynchError(i) = abs(tdiffs(bestInd));
                 synchedData.VideoTime(i) = vidOnlyTable.Timestamp(i);
-                synchedData.TempTime(i) = tempOnlyable.Timestamp(i);
-                synchedData.isInterped(i) = false;
+                synchedData.TempTime(i) = tempOnlyTable.Timestamp(i);
+                synchedData.isInterpolated(i) = false;
             end
         elseif (tdiffs(bestInd) < 0)
-            
+            if (bestInd > 1)
+                diff1 = -tdiffs(bestInd);
+                diff2 = vidOnlyTable.Timestamp(i) - tempOnlyTable.Timestamp(bestInd-1);
+                interpolatedTemperature = ((1/diff1)*tempOnlyTable.Celcius(bestInd) + (1/diff2)*tempOnlyTable.Celcius(bestInd-1))/((1/diff1)+(1/diff2));
+                synchedData.Celcius(i) = interpolatedTemperature;
+                synchedData.SynchError(i) = abs(tdiffs(bestInd));
+                synchedData.VideoTime(i) = vidOnlyTable.Timestamp(i);
+                synchedData.TempTime(i) = tempOnlyTable.Timestamp(i);
+                synchedData.isInterpolated(i) = true;
+            else
+                synchedData.Celcius(i) = tempOnlyTable.Celcius(bestInd);
+                synchedData.SynchError(i) = abs(tdiffs(bestInd));
+                synchedData.VideoTime(i) = vidOnlyTable.Timestamp(i);
+                synchedData.TempTime(i) = tempOnlyTable.Timestamp(i);
+                synchedData.isInterpolated(i) = false;
+            end
+        else
+            synchedData.Celcius(i) = tempOnlyTable.Celcius(bestInd);
+            synchedData.SynchError(i) = 0;
+            synchedData.VideoTime(i) = vidOnlyTable.Timestamp(i);
+            synchedData.TempTime(i) = tempOnlyTable.Timestamp(i);
+            synchedData.isInterpolated(i) = false;
         end
         
     end
