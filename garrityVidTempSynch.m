@@ -1,5 +1,28 @@
 function [synchedData] = garrityVidTempSynch(vidDataFname,tempDataFname,varargin)
-% Written by Ben Ballintyn (bbal@brandeis.edu) 05/22
+% Written by Ben Ballintyn (bbal@brandeis.edu) 05/2022
+% garrityVidTempSynch(vidDataFname, tempDataFname, varargin)
+%
+% vidDataFname : string with path to file with video metadata (e.g.
+% ~/mydata/metadata.txt
+%
+% tempDataFname : string with path to file with temperature data. Assumed
+% to be a .csv file
+%
+% varargin : Two optional inputs
+%
+%   'synchMethod' : either 'exactInterp' or 'nearestNeighbor'.
+%   'exactInterp' will find the closest (in time) temperature values to the
+%   current video frame and perform a weighted average (weighted by time
+%   difference from the video frame). 'nearestNeighbor' simply uses the
+%   temperature value that is closest (in time) to the current video frame
+%
+%   'synchErrorTolerance' : Maximum amount of synchError (in milliseconds)
+%   allowed. synchError is defined as the absolute time difference between
+%   the current video frame and the nearest temperature value. Default
+%   value is 100ms. Any video frames in which there is no temperature value
+%   within 'synchErrorTolerance' ms is filled in with NaN values for the
+%   temperature.
+
 
 % Disable warnings until end of table creation
 warning('off','all')
@@ -164,7 +187,26 @@ for i=1:frameCount
             synchedData.TempTime(i) = tempOnlyTable.Timestamp(i);
             synchedData.isInterpolated(i) = false;
         end
-        
+    elseif (strcmp(p.Results.synchMethod,'nearestNeighbor'))
+        tdiffs = vidOnlyTable.Timestamp(i) - tempOnlyTable.Timestamp;
+        [~,bestInd] = min(abs(tdiffs));
+        if (abs(tdiffs(bestInd)) > p.Results.synchErrorTolerance)
+            if (~ismember(warnFlags,'synchErrorExceeded'))
+                nWarns = nWarns + 1;
+                warnFlags(nWarns) = 'synchErrorExceeded';
+            end
+            synchedData.Celsius(i) = nan;
+            synchedData.SynchError = nan;
+            synchedData.VideoTime(i) = vidOnlyTable.Timestamp(i);
+            synchedData.TempTime(i) = nan;
+            synchedData.isInterpolated(i) = false;
+        else
+            synchedData.Celsius(i) = tempOnlyTable.Celsius(bestInd);
+            synchedData.SynchError(i) = abs(tdiffs(bestInd));
+            synchedData.VideoTime(i) = vidOnlyTable.Timestamp(i);
+            synchedData.TempTime(i) = tempOnlyTable.Timestamp(bestInd);
+            synchedData.isInterpolated(i) = false;
+        end
     end
 end
 
