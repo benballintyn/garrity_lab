@@ -1,8 +1,17 @@
-function [vidOnlyTable, tempOnlyTable] = garrityVidTempSynch(vidDataFname,tempDataFname)
+function [vidOnlyTable, tempOnlyTable] = garrityVidTempSynch(vidDataFname,tempDataFname,varargin)
 % Written by Ben Ballintyn (bbal@brandeis.edu) 05/22
 
 % Disable warnings until end of table creation
 warning('off','all')
+
+% Parse inputs
+isASynchMethod = @(x) ismember(x,{'exactInterp','nearestNeighbor'});
+p = inputParser;
+addRequired(p,'vidDataFname')
+addRequired(p,'tempDataFname')
+addParameter(p,'synchMethod','exactInterp',isASynchMethod)
+parse(p,vidDataFname,tempDataFname,varargin{:})
+
 % Read in data. Temp data is read into a table. Video metadata is read as a
 % JSON file and decoded by jsondecode into a structure
 T = readtable(tempDataFname);
@@ -71,8 +80,56 @@ for i=1:frameCount
     elapsed_time = vidStr.(metaDataFieldNames{i}).ElapsedTime_ms;
     vidOnlyTable.Timestamp(i) = vidDayTimeInMsecs + elapsed_time;
     vidOnlyTable.frame(i) = vidStr.(metaDataFieldNames{i}).Frame;
+    vidOnlyTable.elapsed_time(i) = elapsed_time;
 end
 
+% Begin synching process by determing whether video or temperature was
+% started first
+tStartDiff = vidDayTimeInMsecs - tempDayTimeInMsecs;
+if (tStartDiff > 0)
+    disp(['Temperature recording was started ' num2str(tStartDiff) 'ms before the video recording'])
+    tdiffs = tempOnlyTable.Timestamp - vidOnlyTable.Timestamp(1);
+    [~,tempSynchStartInd] = min(abs(tdiffs));
+    disp(['Because of the start time offset, synched temperature values will begin on the ' num2str(tempSynchStartInd) 'th recorded value'])
+elseif (tStartDiff < 0)
+    disp(['Video recording was started ' num2str(-tStartDiff) 'ms before the temperature recording'])
+    tdiffs = vidOnlyTable.Timestamp - tempOnlyTable.Timestamp(1);
+    [~,vidSynchStartInd] = min(abs(tdiffs));
+    disp(['Because of the start time offset, the first ' num2str(vidSynchStartInd) ' synched values will not contain temperature data'])
+else
+    disp('Wow! Both recordings were started at the exact same time!')
+end
 
+% Synch data using desired method
+synchedData = cell2table(cell(0,3),'VariableNames',{'Frame','TimeElapsed','Celcius','SynchError','VideoTime','TempTime','isInterped'});
+for i=1:frameCount
+    synchedData.Frame(i) = vidOnlyTable.frame(i);
+    synchedData.TimeElapsed(i) = vidOnlyTable.elapsed_time(i);
+    if (strcmp(p.Results.synchMethod,'exactInterp'))
+        tdiffs = vidOnlyTable.Timestamp(i) - tempOnlyTable.Timestamp(i);
+        [~,bestInd] = min(abs(tdiffs));
+        if (tdiffs(bestInd) > 0)
+            if (bestInd ~= height(tempOnlyTable))
+                diff1 = tdiffs(bestInd);
+                diff2 = tempOnlyTable.Timestamp(bestInd+1) - vidOnlyTable.Timestamp(i);
+                interpolatedTemperature = ((1/diff1)*tempOnlyTable.Celcius(bestInd) + (1/diff2)*tempOnlyTable.Celcius(bestInd+1))/((1/diff1)+(1/diff2));
+                synchedData.Celcius(i) = interpolatedTemperature;
+                synchedData.SynchError(i) = abs(tdiffs(bestInd));
+                synchedData.VideoTime(i) = vidOnlyTable.Timestamp(i);
+                synchedData.TempTime(i) = tempOnlyTable.Timestamp(i);
+                synchedData.isInterped(i) = true;
+            else
+                synchedData.Celcius(i) = tempOnlyTable.Celcius(bestInd);
+                synchedData.SynchError(i) = abs(tdiffs(bestInd));
+                synchedData.VideoTime(i) = vidOnlyTable.Timestamp(i);
+                synchedData.TempTime(i) = tempOnlyable.Timestamp(i);
+                synchedData.isInterped(i) = false;
+            end
+        elseif (tdiffs(bestInd) < 0)
+            
+        end
+        
+    end
+end
 end
 
