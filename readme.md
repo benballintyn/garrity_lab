@@ -4,8 +4,9 @@ In order to synch the video frames and temperature data as closely as possible, 
 
 In addition to the filenames, this function accepts 2 optional arguments via varargin:
 
-1) 'synchMethod' : Can be either 'exactInterp' or 'nearestNeighbor'
+1) 'synchMethod' : Can be either 'exactInterp' or 'nearestNeighbor'\
 'exactInterp'
-: Uses a simple form of inverse distance weighting to determine the temperature value at the timepoint of a given video frame. For a given video frame, the nearest temperature readings (in time, before and after the video frame) are weighted and averaged according to:
+: Uses a simple form of inverse distance weighting to determine the temperature value at the timepoint of a given video frame. For a given video frame, the nearest temperature readings (in time, before and after the video frame) are weighted and averaged according to:\
+$$\hat{T(t)} = (\dfrac{1}{\Delta t_1}) $$
 
 
