@@ -17,7 +17,7 @@ In the case where the time of video frame is slightly before the first temperatu
 
 2) 'synchErrorTolerance'
 : The maximum allowable time difference (in ms) between a video frame timestamp and its nearest (in time) temperature reading. Default value is 100ms. Video frames with no temperature reading within 'synchErrorTolerance' ms will have a NaN as the reported temperature value.\
-\
+
 
 Output:\
 synchedData
